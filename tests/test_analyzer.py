@@ -27,3 +27,8 @@ def test_parse_xlsx():
     df = parse_file(buf.getvalue(), 'data.xlsx')
     assert len(df) == 1
     assert list(df.columns) == ['name', 'sales']
+
+def test_parse_csv_uppercase_extension():
+    from analyzer import parse_file
+    df = parse_file(SAMPLE_CSV, 'data.CSV')
+    assert len(df) == 3

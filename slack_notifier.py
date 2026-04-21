@@ -1,6 +1,5 @@
 import os
 from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
 
 def send_slack_message(channel: str, filename: str, summary: str, stats: dict) -> None:
@@ -10,9 +9,9 @@ def send_slack_message(channel: str, filename: str, summary: str, stats: dict) -
 
     client = WebClient(token=token)
 
-    rows = stats.get('rows', '-')
-    cols = stats.get('cols', '-')
-    missing = stats.get('missing_values', '-')
+    rows = stats.get('rows', 0)
+    cols = stats.get('cols', 0)
+    missing = stats.get('missing_values', 0)
 
     text = (
         f"📊 Excel/CSV AI 分析結果\n"

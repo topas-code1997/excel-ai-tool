@@ -30,6 +30,16 @@
                     </div>
                 </div>
             </div>
+            <div class="form-group slack-section">
+                <label class="checkbox-label">
+                    <input type="checkbox" id="slack-notify">
+                    Slackに通知する
+                </label>
+                <div id="slack-channel-group" class="hidden">
+                    <label for="slack-channel">通知先チャンネル</label>
+                    <input type="text" id="slack-channel" placeholder="#general">
+                </div>
+            </div>
             <button id="analyze-btn" class="btn-primary" disabled>分析する ▶</button>
             <div id="error-msg" class="error-msg hidden"></div>
         </div>
@@ -40,6 +50,8 @@
         </div>
 
         <div id="results" class="hidden">
+            <div id="slack-success" class="slack-banner slack-success hidden">✅ Slackに通知しました</div>
+            <div id="slack-warning" class="slack-banner slack-warning hidden"></div>
             <div class="card">
                 <h2>📝 AI分析結果</h2>
                 <div id="summary-text" class="summary-box"></div>
@@ -64,6 +76,15 @@
         const loading = document.getElementById('loading');
         const results = document.getElementById('results');
         const errorMsg = document.getElementById('error-msg');
+        const slackNotifyCheckbox = document.getElementById('slack-notify');
+        const slackChannelGroup = document.getElementById('slack-channel-group');
+        const slackChannelInput = document.getElementById('slack-channel');
+        const slackSuccess = document.getElementById('slack-success');
+        const slackWarning = document.getElementById('slack-warning');
+
+        slackNotifyCheckbox.addEventListener('change', () => {
+            slackChannelGroup.classList.toggle('hidden', !slackNotifyCheckbox.checked);
+        });
         let chartInstance = null;
         let selectedFile = null;
 
@@ -103,6 +124,10 @@
             const formData = new FormData();
             formData.append('file', selectedFile);
             formData.append('api_key', apiKeyInput.value.trim());
+            if (slackNotifyCheckbox.checked) {
+                formData.append('slack_notify', 'true');
+                formData.append('slack_channel', slackChannelInput.value.trim());
+            }
 
             try {
                 const resp = await fetch('/analyze', { method: 'POST', body: formData });
@@ -140,6 +165,15 @@
         }
 
         function renderResults(data) {
+            slackSuccess.classList.add('hidden');
+            slackWarning.classList.add('hidden');
+            if (data.slack_sent) {
+                slackSuccess.classList.remove('hidden');
+            }
+            if (data.slack_error) {
+                slackWarning.textContent = '⚠️ ' + data.slack_error;
+                slackWarning.classList.remove('hidden');
+            }
             document.getElementById('summary-text').textContent = data.summary;
 
             const statsGrid = document.getElementById('stats-grid');

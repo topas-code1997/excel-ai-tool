@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Excel/CSV AI アナライザー</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Excel/CSV AI アナライザー</h1>
+            <p class="subtitle">ファイルをアップロードしてAIによる自動分析を実行</p>
+        </header>
+
+        <div class="card" id="upload-card">
+            <div class="form-group">
+                <label for="api-key">OpenAI APIキー</label>
+                <input type="password" id="api-key" placeholder="sk-..." autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>ファイル選択（.csv / .xlsx）</label>
+                <div class="file-drop-zone" id="drop-zone">
+                    <input type="file" id="file-input" accept=".csv,.xlsx" hidden>
+                    <div class="drop-content">
+                        <span class="drop-icon">📁</span>
+                        <p>クリックまたはドラッグ＆ドロップ</p>
+                        <p class="file-name" id="file-name">ファイルが選択されていません</p>
+                    </div>
+                </div>
+            </div>
+            <button id="analyze-btn" class="btn-primary" disabled>分析する ▶</button>
+            <div id="error-msg" class="error-msg hidden"></div>
+        </div>
+
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>AIが分析中です...</p>
+        </div>
+
+        <div id="results" class="hidden">
+            <div class="card">
+                <h2>📝 AI分析結果</h2>
+                <div id="summary-text" class="summary-box"></div>
+            </div>
+            <div class="card">
+                <h2>📈 データ概要</h2>
+                <div id="stats-grid" class="stats-grid"></div>
+            </div>
+            <div class="card hidden" id="chart-card">
+                <h2>📊 数値データグラフ</h2>
+                <canvas id="chart" height="120"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const fileNameEl = document.getElementById('file-name');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        const apiKeyInput = document.getElementById('api-key');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        const errorMsg = document.getElementById('error-msg');
+        let chartInstance = null;
+        let selectedFile = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+            dropZone.classList.add('drag-over');
+        });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files[0]) setFile(fileInput.files[0]);
+        });
+
+        function setFile(file) {
+            selectedFile = file;
+            fileNameEl.textContent = file.name;
+            updateBtn();
+        }
+
+        apiKeyInput.addEventListener('input', updateBtn);
+
+        function updateBtn() {
+            analyzeBtn.disabled = !(selectedFile && apiKeyInput.value.trim());
+        }
+
+        analyzeBtn.addEventListener('click', async () => {
+            showError('');
+            loading.classList.remove('hidden');
+            results.classList.add('hidden');
+            analyzeBtn.disabled = true;
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('api_key', apiKeyInput.value.trim());
+
+            try {
+                const resp = await fetch('/analyze', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (!data.success) {
+                    showError(data.error);
+                    return;
+                }
+                renderResults(data);
+            } catch {
+                showError('通信エラーが発生しました。');
+            } finally {
+                loading.classList.add('hidden');
+                updateBtn();
+            }
+        });
+
+        function showError(msg) {
+            errorMsg.textContent = msg;
+            errorMsg.classList.toggle('hidden', !msg);
+        }
+
+        function makeStatItem(label, value) {
+            const item = document.createElement('div');
+            item.className = 'stat-item';
+            const labelEl = document.createElement('span');
+            labelEl.className = 'stat-label';
+            labelEl.textContent = label;
+            const valueEl = document.createElement('span');
+            valueEl.className = 'stat-value';
+            valueEl.textContent = Number(value).toLocaleString();
+            item.appendChild(labelEl);
+            item.appendChild(valueEl);
+            return item;
+        }
+
+        function renderResults(data) {
+            document.getElementById('summary-text').textContent = data.summary;
+
+            const statsGrid = document.getElementById('stats-grid');
+            statsGrid.textContent = '';
+            statsGrid.appendChild(makeStatItem('行数', data.stats.rows));
+            statsGrid.appendChild(makeStatItem('列数', data.stats.cols));
+            statsGrid.appendChild(makeStatItem('欠損値', data.stats.missing_values));
+
+            const chartCard = document.getElementById('chart-card');
+            if (data.chart_data) {
+                chartCard.classList.remove('hidden');
+                if (chartInstance) chartInstance.destroy();
+                chartInstance = new Chart(document.getElementById('chart'), {
+                    type: 'bar',
+                    data: data.chart_data,
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: { labels: { color: '#e2e8f0' } }
+                        },
+                        scales: {
+                            x: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } },
+                            y: { ticks: { color: '#94a3b8' }, grid: { color: '#334155' } }
+                        }
+                    }
+                });
+            } else {
+                chartCard.classList.add('hidden');
+            }
+
+            results.classList.remove('hidden');
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>

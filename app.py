@@ -46,6 +46,8 @@ def analyze_file():
                     stats=result['stats'],
                 )
                 result['slack_sent'] = True
+            except ValueError as e:
+                result['slack_error'] = str(e)
             except Exception as e:
                 result['slack_error'] = f'Slack送信エラー: {str(e)}'
 

@@ -3,3 +3,5 @@ openai
 pandas
 openpyxl
 pytest
+slack-sdk
+python-dotenv

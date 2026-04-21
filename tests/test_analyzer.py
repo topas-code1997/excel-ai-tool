@@ -53,3 +53,23 @@ def test_generate_stats_missing_values():
     df = parse_file(SAMPLE_CSV_MISSING, 'data.csv')
     stats = generate_stats(df)
     assert stats['missing_values'] == 2
+
+def test_generate_chart_data_with_numeric():
+    from analyzer import parse_file, generate_chart_data
+    df = parse_file(SAMPLE_CSV, 'data.csv')
+    chart = generate_chart_data(df)
+    assert chart is not None
+    assert chart['labels'] == ['平均', '最大', '最小']
+    assert len(chart['datasets']) == 2  # sales and profit
+
+def test_generate_chart_data_no_numeric():
+    from analyzer import generate_chart_data
+    df = pd.DataFrame({'name': ['Alice', 'Bob'], 'city': ['Tokyo', 'Osaka']})
+    chart = generate_chart_data(df)
+    assert chart is None
+
+def test_generate_chart_data_max_3_columns():
+    from analyzer import generate_chart_data
+    df = pd.DataFrame({'a': [1], 'b': [2], 'c': [3], 'd': [4]})
+    chart = generate_chart_data(df)
+    assert len(chart['datasets']) == 3

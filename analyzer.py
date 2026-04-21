@@ -58,3 +58,51 @@ def generate_chart_data(df):
         'labels': ['平均', '最大', '最小'],
         'datasets': datasets,
     }
+
+
+def analyze_with_ai(df, stats, api_key):
+    client = OpenAI(api_key=api_key)
+
+    sample = df.head(5).to_string()
+    numeric_text = '\n'.join(
+        f"  {col}: 平均={v['mean']}, 最大={v['max']}, 最小={v['min']}, 合計={v['sum']}"
+        for col, v in stats['numeric_summary'].items()
+    )
+
+    prompt = f"""以下のデータを日本語で分析してください。
+
+【データサンプル（先頭5行）】
+{sample}
+
+【統計情報】
+行数: {stats['rows']}
+列数: {stats['cols']}
+欠損値: {stats['missing_values']}
+数値列の統計:
+{numeric_text if numeric_text else '  数値列なし'}
+
+以下の点について簡潔にまとめてください：
+1. データの概要
+2. 注目すべき傾向や特徴
+3. 気になる点や改善が必要な箇所（あれば）"""
+
+    response = client.chat.completions.create(
+        model='gpt-4o-mini',
+        messages=[{'role': 'user', 'content': prompt}],
+        max_tokens=1000,
+    )
+
+    return response.choices[0].message.content
+
+
+def analyze(file_bytes, filename, api_key):
+    df = parse_file(file_bytes, filename)
+    stats = generate_stats(df)
+    chart_data = generate_chart_data(df)
+    summary = analyze_with_ai(df, stats, api_key)
+    return {
+        'success': True,
+        'summary': summary,
+        'stats': stats,
+        'chart_data': chart_data,
+    }

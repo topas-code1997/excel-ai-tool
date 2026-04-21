@@ -1,6 +1,7 @@
 import io
 import pytest
 import pandas as pd
+from unittest.mock import patch, MagicMock
 
 SAMPLE_CSV = b"name,sales,profit\nAlice,1000,200\nBob,2000,400\nCarol,1500,300"
 
@@ -73,3 +74,41 @@ def test_generate_chart_data_max_3_columns():
     df = pd.DataFrame({'a': [1], 'b': [2], 'c': [3], 'd': [4]})
     chart = generate_chart_data(df)
     assert len(chart['datasets']) == 3
+
+def test_analyze_with_ai():
+    from analyzer import parse_file, generate_stats, analyze_with_ai
+    df = parse_file(SAMPLE_CSV, 'data.csv')
+    stats = generate_stats(df)
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "テスト分析結果"
+
+    with patch('analyzer.OpenAI') as mock_openai:
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = analyze_with_ai(df, stats, 'test-key')
+
+    assert result == "テスト分析結果"
+    mock_client.chat.completions.create.assert_called_once()
+    call_kwargs = mock_client.chat.completions.create.call_args[1]
+    assert call_kwargs['model'] == 'gpt-4o-mini'
+
+def test_analyze_full():
+    from analyzer import analyze
+
+    mock_response = MagicMock()
+    mock_response.choices[0].message.content = "完全な分析結果"
+
+    with patch('analyzer.OpenAI') as mock_openai:
+        mock_client = MagicMock()
+        mock_openai.return_value = mock_client
+        mock_client.chat.completions.create.return_value = mock_response
+
+        result = analyze(SAMPLE_CSV, 'data.csv', 'test-key')
+
+    assert result['success'] is True
+    assert result['summary'] == "完全な分析結果"
+    assert result['stats']['rows'] == 3
+    assert result['chart_data'] is not None

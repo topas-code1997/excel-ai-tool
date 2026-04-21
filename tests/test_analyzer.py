@@ -32,3 +32,24 @@ def test_parse_csv_uppercase_extension():
     from analyzer import parse_file
     df = parse_file(SAMPLE_CSV, 'data.CSV')
     assert len(df) == 3
+
+SAMPLE_CSV_MISSING = b"name,sales,profit\nAlice,1000,\nBob,,400"
+
+def test_generate_stats_basic():
+    from analyzer import parse_file, generate_stats
+    df = parse_file(SAMPLE_CSV, 'data.csv')
+    stats = generate_stats(df)
+    assert stats['rows'] == 3
+    assert stats['cols'] == 3
+    assert stats['missing_values'] == 0
+    assert 'sales' in stats['numeric_summary']
+    assert stats['numeric_summary']['sales']['sum'] == 4500.0
+    assert stats['numeric_summary']['sales']['mean'] == 1500.0
+    assert stats['numeric_summary']['sales']['max'] == 2000.0
+    assert stats['numeric_summary']['sales']['min'] == 1000.0
+
+def test_generate_stats_missing_values():
+    from analyzer import parse_file, generate_stats
+    df = parse_file(SAMPLE_CSV_MISSING, 'data.csv')
+    stats = generate_stats(df)
+    assert stats['missing_values'] == 2
